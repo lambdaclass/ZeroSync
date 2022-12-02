@@ -1,0 +1,107 @@
+From 2d93fbe63a76f35b782b555354f4dd8b681dad87 Mon Sep 17 00:00:00 2001
+From: jrigada <jrigada@frba.utn.edu.ar>
+Date: Fri, 2 Dec 2022 18:29:47 -0300
+Subject: [PATCH] patch cairo-rs-py runner into cheatable runner
+
+---
+ .../starknet/cheatable_execute_entry_point.py | 47 +++++++------------
+ 1 file changed, 18 insertions(+), 29 deletions(-)
+
+diff --git a/protostar/starknet/cheatable_execute_entry_point.py b/protostar/starknet/cheatable_execute_entry_point.py
+index e105400..4e2262c 100644
+--- a/protostar/starknet/cheatable_execute_entry_point.py
++++ b/protostar/starknet/cheatable_execute_entry_point.py
+@@ -56,6 +56,7 @@ from protostar.starknet.cheatable_cairo_function_runner import (
+ )
+ from protostar.starknet.cheatable_syscall_handler import CheatableSysCallHandler
+ from protostar.starknet.cheatcode import Cheatcode
++import cairo_rs_py
+ 
+ if TYPE_CHECKING:
+     from protostar.starknet.cheatcode_factory import CheatcodeFactory
+@@ -121,9 +122,9 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+         # Run the specified contract entry point with given calldata.
+         with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
+             # region Modified Starknet code.
+-            runner = CheatableCairoFunctionRunner(
+-                program=contract_class.program, layout="all"
+-            )
++            runner = cairo_rs_py.CairoRunner(program=contract_class.program.dumps(), entrypoint=None, layout="all", proof_mode=False)
++            runner.initialize_function_runner()
++    
+             # endregion
+ 
+         os_context = os_utils.prepare_os_context(runner=runner)
+@@ -174,41 +175,29 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+ 
+         # endregion
+ 
+-        # Positional arguments are passed to *args in the 'run_from_entrypoint' function.
+         entry_points_args = [
+             self.entry_point_selector,
+             os_context,
+             len(self.calldata),
+             # Allocate and mark the segment as read-only (to mark every input array as read-only).
+-            # pylint: disable=protected-access
+-            syscall_handler._allocate_segment(
+-                segments=runner.segments, data=self.calldata
+-            ),
+-        ]
+-
+-        # region Modified Starknet code.
+-        if self.profiling:
+-            self.append_contract_callstack(state, class_hash)
+-        # endregion
++            syscall_handler._allocate_segment(segments=runner, data=self.calldata),
++            ]
+ 
+         try:
+             runner.run_from_entrypoint(
+                 entry_point.offset,
+-                *entry_points_args,
+-                # region Modified Starknet code.
++                entry_points_args,
+                 hint_locals={
+-                    **hint_locals,
+                     "syscall_handler": syscall_handler,
+                 },
+-                # endregion
+-                static_locals={
+-                    "__find_element_max_size": 2**20,
+-                    "__squash_dict_max_size": 2**20,
+-                    "__keccak_max_size": 2**20,
+-                    "__usort_max_size": 2**20,
+-                    "__chained_ec_op_max_len": 1000,
+-                },
+-                run_resources=tx_execution_context.run_resources,
++                # static_locals={
++                #     "__find_element_max_size": 2**20,
++                #     "__squash_dict_max_size": 2**20,
++                #     "__keccak_max_size": 2**20,
++                #     "__usort_max_size": 2**20,
++                #     "__chained_ec_op_max_len": 1000,
++                # },
++                # run_resources=tx_execution_context.run_resources,
+                 verify_secure=True,
+             )
+ 
+@@ -252,13 +241,13 @@ class CheatableExecuteEntryPoint(ExecuteEntryPoint):
+             syscall_handler=syscall_handler,
+             initial_os_context=os_context,
+         )
+-
++    
+         # When execution starts the stack holds entry_points_args + [ret_fp, ret_pc].
+         args_ptr = runner.initial_fp - (len(entry_points_args) + 2)
+-
++        
+         # The arguments are touched by the OS and should not be counted as holes, mark them
+         # as accessed.
+-        assert isinstance(args_ptr, RelocatableValue)  # Downcast.
++        # assert isinstance(args_ptr, RelocatableValue)  # Downcast.
+         runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
+ 
+         # region Modified Starknet code.
+-- 
+2.37.1 (Apple Git-137.1)
+
