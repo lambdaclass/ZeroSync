@@ -264,94 +264,94 @@ func test_adjust_current_target{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}()
     return ();
 }
 
-@external
-func test_insufficient_pow{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
-    alloc_locals;
-    setup_python_defs();
+// @external
+// func test_insufficient_pow{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
+//     alloc_locals;
+//     setup_python_defs();
 
-    // Block hashes for block 0 and 1
-    // https://blockstream.info/block/00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048
-    // https://blockstream.info/block/000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f
-    let (prev_block_hash) = alloc();
-    let (block_hash_expected) = alloc();
-    %{
-        hashes_from_hex([
-            "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-        ], ids.prev_block_hash)
-        hashes_from_hex([
-            "00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048"
-            ], ids.block_hash_expected)
-    %}
+//     // Block hashes for block 0 and 1
+//     // https://blockstream.info/block/00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048
+//     // https://blockstream.info/block/000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f
+//     let (prev_block_hash) = alloc();
+//     let (block_hash_expected) = alloc();
+//     %{
+//         hashes_from_hex([
+//             "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+//         ], ids.prev_block_hash)
+//         hashes_from_hex([
+//             "00000000839a8e6886ab5951d76f411475428afc90947ee320161bbf18eb6048"
+//             ], ids.block_hash_expected)
+//     %}
 
-    // Run a sanity check that header validation does not error with correct pow.
-    let prev_timestamps = dummy_prev_timestamps();
+//     // Run a sanity check that header validation does not error with correct pow.
+//     let prev_timestamps = dummy_prev_timestamps();
 
-    let prev_chain_state = ChainState(
-        block_height=0,
-        total_work=0,
-        best_block_hash=prev_block_hash,
-        current_target=0x1d00ffff,
-        epoch_start_time=0,
-        prev_timestamps,
-    );
+//     let prev_chain_state = ChainState(
+//         block_height=0,
+//         total_work=0,
+//         best_block_hash=prev_block_hash,
+//         current_target=0x1d00ffff,
+//         epoch_start_time=0,
+//         prev_timestamps,
+//     );
 
-    // initialize sha256_ptr
-    let sha256_ptr: felt* = alloc();
+//     // initialize sha256_ptr
+//     let sha256_ptr: felt* = alloc();
 
-    // Block 1 will be read here.
-    with sha256_ptr {
-        let context = read_block_header_validation_context(prev_chain_state);
-    }
+//     // Block 1 will be read here.
+//     with sha256_ptr {
+//         let context = read_block_header_validation_context(prev_chain_state);
+//     }
 
-    // Check if the block hash is correct.
-    with_attr error_message("Invalid block hash.") {
-        assert_hashes_equal(context.block_hash, block_hash_expected);
-    }
+//     // Check if the block hash is correct.
+//     with_attr error_message("Invalid block hash.") {
+//         assert_hashes_equal(context.block_hash, block_hash_expected);
+//     }
 
-    // Try to validate the block header.
-    // This should succeed for the currently correct target.
-    with sha256_ptr {
-        let next_state = validate_and_apply_block_header(context);
-    }
+//     // Try to validate the block header.
+//     // This should succeed for the currently correct target.
+//     with sha256_ptr {
+//         let next_state = validate_and_apply_block_header(context);
+//     }
 
-    // Run a test with manipulated target.
-    let prev_timestamps = dummy_prev_timestamps();
+//     // Run a test with manipulated target.
+//     let prev_timestamps = dummy_prev_timestamps();
 
-    let prev_chain_state = ChainState(
-        block_height=0,
-        total_work=0,
-        best_block_hash=prev_block_hash,
-        current_target=0x1d00ffff,
-        epoch_start_time=0,
-        prev_timestamps,
-    );
+//     let prev_chain_state = ChainState(
+//         block_height=0,
+//         total_work=0,
+//         best_block_hash=prev_block_hash,
+//         current_target=0x1d00ffff,
+//         epoch_start_time=0,
+//         prev_timestamps,
+//     );
 
-    // Block 1 will be read here.
-    with sha256_ptr {
-        let context = read_block_header_validation_context(prev_chain_state);
-    }
+//     // Block 1 will be read here.
+//     with sha256_ptr {
+//         let context = read_block_header_validation_context(prev_chain_state);
+//     }
 
-    // Check if the block hash is correct
-    with_attr error_message("Invalid block hash.") {
-        assert_hashes_equal(context.block_hash, block_hash_expected);
-    }
+//     // Check if the block hash is correct
+//     with_attr error_message("Invalid block hash.") {
+//         assert_hashes_equal(context.block_hash, block_hash_expected);
+//     }
 
-    // Manipulate the target and set it to 1.
-    let low_target_context = BlockHeaderValidationContext(
-        block_header=context.block_header,
-        block_hash=context.block_hash,
-        target=1,
-        prev_chain_state=context.prev_chain_state,
-        block_height=context.block_height,
-    );
+//     // Manipulate the target and set it to 1.
+//     let low_target_context = BlockHeaderValidationContext(
+//         block_header=context.block_header,
+//         block_hash=context.block_hash,
+//         target=1,
+//         prev_chain_state=context.prev_chain_state,
+//         block_height=context.block_height,
+//     );
 
-    // Try to validate the block header.
-    // This should fail now because of the low target and pow validation.
-    %{ expect_revert() %}
-    let next_state = validate_and_apply_block_header(low_target_context);
+//     // Try to validate the block header.
+//     // This should fail now because of the low target and pow validation.
+//     %{ expect_revert() %}
+//     let next_state = validate_and_apply_block_header(low_target_context);
 
-    return ();
-}
+//     return ();
+// }
 
 @external
 func test_compute_work_from_target1{range_check_ptr}() {

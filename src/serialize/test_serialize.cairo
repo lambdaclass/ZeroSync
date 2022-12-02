@@ -310,46 +310,46 @@ func test_write_uint64{bitwise_ptr: BitwiseBuiltin*}() {
     return ();
 }
 
-@external
-func test_write_varint{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
-    alloc_locals;
-    let (array) = alloc();
-    let writer = init_writer(array);
+// @external
+// func test_write_varint{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
+//     alloc_locals;
+//     let (array) = alloc();
+//     let writer = init_writer(array);
 
-    with writer {
-        // Write every type of varint.
-        write_varint(0x01);
-        write_varint(0x0102);
-        write_varint(0x01020304);
-        write_varint(0x0102030405060708);
+//     with writer {
+//         // Write every type of varint.
+//         write_varint(0x01);
+//         write_varint(0x0102);
+//         write_varint(0x01020304);
+//         write_varint(0x0102030405060708);
         
-        // Write every full varint.
-        write_varint(0xff);
-        write_varint(0xffff);
-        write_varint(0xffffffff);
-        write_varint(0xffffffffffffffff);
-    }
-    flush_writer(writer);
+//         // Write every full varint.
+//         write_varint(0xff);
+//         write_varint(0xffff);
+//         write_varint(0xffffffff);
+//         write_varint(0xffffffffffffffff);
+//     }
+//     flush_writer(writer);
 
-    assert 0x01fd0201 = array[0];
-    assert 0xfe040302 = array[1];
-    assert 0x01ff0807 = array[2];
-    assert 0x06050403 = array[3];
-    assert 0x0201fffd = array[4];
+//     assert 0x01fd0201 = array[0];
+//     assert 0xfe040302 = array[1];
+//     assert 0x01ff0807 = array[2];
+//     assert 0x06050403 = array[3];
+//     assert 0x0201fffd = array[4];
 
-    assert 0xfffffeff = array[5];
-    assert 0xffffffff = array[6];
-    assert 0xffffffff = array[7];
-    assert 0xffffffff = array[8];
+//     assert 0xfffffeff = array[5];
+//     assert 0xffffffff = array[6];
+//     assert 0xffffffff = array[7];
+//     assert 0xffffffff = array[8];
 
-    // Try to write varint bigger than 8 bytes
-    %{ expect_revert() %}
-    with writer {
-        write_varint(0x010203040506070809);
-    }
+//     // Try to write varint bigger than 8 bytes
+//     %{ expect_revert() %}
+//     with writer {
+//         write_varint(0x010203040506070809);
+//     }
 
-    return ();
-}
+//     return ();
+// }
 
 @external
 func test_write_uint32_endian{bitwise_ptr: BitwiseBuiltin*}() {

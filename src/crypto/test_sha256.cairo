@@ -174,30 +174,30 @@ func test_sha256_64_bytes{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
 // Test that sha256 validates that every element of the input array is an uint32
 // and throws an error otherwise
 //
-@external
-func test_sha256_uint32_overflow{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
-    alloc_locals;
+// @external
+// func test_sha256_uint32_overflow{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}() {
+//     alloc_locals;
 
-    let n_bytes = 16;
-    let (input) = alloc();
-    assert [input + 0] = 0x0FFFFFFFF;
-    assert [input + 1] = 0x100000000;
-    assert [input + 2] = 0x00000FFFF;
-    assert [input + 3] = 0x000010000;
+//     let n_bytes = 16;
+//     let (input) = alloc();
+//     assert [input + 0] = 0x0FFFFFFFF;
+//     assert [input + 1] = 0x100000000;
+//     assert [input + 2] = 0x00000FFFF;
+//     assert [input + 3] = 0x000010000;
 
-    %{ expect_revert() %}
+//     %{ expect_revert() %}
 
-    // initialize sha256_ptr
-    let sha256_ptr: felt* = alloc();
-    let sha256_ptr_start = sha256_ptr;
-    with sha256_ptr {
-        let output = compute_sha256(input, n_bytes);
-    }
+//     // initialize sha256_ptr
+//     let sha256_ptr: felt* = alloc();
+//     let sha256_ptr_start = sha256_ptr;
+//     with sha256_ptr {
+//         let output = compute_sha256(input, n_bytes);
+//     }
 
-    // finalize sha256_ptr
-    finalize_sha256(sha256_ptr_start, sha256_ptr);
-    return ();
-}
+//     // finalize sha256_ptr
+//     finalize_sha256(sha256_ptr_start, sha256_ptr);
+//     return ();
+// }
 
 // @external
 // NOTE: padding bytes should be zero or ignored from sha256
