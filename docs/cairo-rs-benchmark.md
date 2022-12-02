@@ -16,7 +16,7 @@ poe build
 ```
 
 ## 3. Testing ZeroSync
-Now the only thing left would be to checkout to `cairo-rs-benchmark` in the Lambda/ZeroSync Fork and use the protostar we built in the previous step to run the tests. 
+Now the only thing left would be to checkout to `cairo-rs-benchmark` in the lambdaclass/ZeroSync Fork and use the protostar we built in the previous step to run the tests. 
 
 ```bash
 <your_home_dir>/protostar/dist/protostar/protostar test  --cairo-path=./src target src
