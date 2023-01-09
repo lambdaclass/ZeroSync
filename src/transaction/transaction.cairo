@@ -11,7 +11,7 @@ from starkware.cairo.common.math import assert_le
 from crypto.hash256 import hash256
 from crypto.hash_utils import HASH_FELT_SIZE
 
-from serialize.serialize import (
+from utils.serialize import (
     init_reader,
     Reader,
     read_uint8,
@@ -351,7 +351,8 @@ func validate_output{range_check_ptr, utreexo_roots: felt*, hash_ptr: HashBuilti
 // See also:
 // - https://developer.bitcoin.org/devguide/transactions.html#signature-hash-types
 //
-func write_transaction{writer: Writer, range_check_ptr}(transaction: Transaction) {
+func write_transaction{writer: Writer, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(transaction: Transaction) {
+    alloc_locals;
     write_uint32(transaction.version);
 
     write_varint(transaction.input_count);

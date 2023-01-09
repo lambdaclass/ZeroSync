@@ -9,9 +9,8 @@
   <a href="https://github.com/ZeroSync/ZeroSync/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
   | <a href="https://github.com/ZeroSync/ZeroSync/discussions">Ask a Question</a>
 </div>
-
 <div align="center">
-<br />
+<br/>
 
 ![GitHub Workflow Status](https://github.com/ZeroSync/ZeroSync/actions/workflows/CI.yml/badge.svg)
 [![Project license](https://img.shields.io/github/license/ZeroSync/ZeroSync.svg)](../LICENSE)
@@ -20,7 +19,6 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/ZeroSync_?style=social)](https://twitter.com/ZeroSync_)
 
 </div>
-
 
 **Don't trust. Verify.** ZeroSync allows to verify Bitcoin's chain state in an instant. No need to download hundreds of gigabytes of blocks. A compact cryptographic proof suffices to validate the entire history of transactions and everyone's current balances. 
 
@@ -31,59 +29,48 @@ This is an early stage project. Expect frequent breaking changes. [Here is the p
 WARNING: THIS CODE IS STILL FULL OF CRITICAL SECURITY BUGS!
 
 ## Requirements
-- Python 3.9
+- Python 3.9 (Activate enviroment: `source ~/cairo_venv/bin/activate`)
 - Cairo. [Installation Guide](https://www.cairo-lang.org/docs/quickstart.html) (Programming language for provable programs)
 - [Protostar](https://docs.swmansion.com/protostar/docs/tutorials/installation) (Automated testing)
-- [Giza](https://github.com/maxgillett/giza) (Required for prover. Not necessary for development and testing)
+- [Giza](https://github.com/zerosync/giza) (Required for prover. Not necessary for development and testing)
+- [EJS](https://ejs.co/) (Required for compiling)
 
+## Install as library
+To access the Cairo code in the `src` directory from within another Cairo project install the zerosync package:
 
-## Run the Utreexo Bridge Node
+```sh
+pip install zerosync
+
+```
+
+Find a short Cairo example at [`docs/import_example.cairo`](https://github.com/ZeroSync/ZeroSync/blob/main/docs/import_example.cairo) on how to import the desired function. 
+
+## Run the Utreexo bridge node
 The Utreexo bridge node is required to pass the tests for block verification. It provides the inclusion proofs for the coins spent in a block.
 
 ```sh
-source ~/cairo_venv/bin/activate
-python src/utreexo/bridge_node.py
+make bridge_node
 ```
 
-
-## Run all Unit Tests
+## Run all unit tests
 ```sh
-protostar test --cairo-path=./src target src
+make unit_test
 ```
 
-## Build Parser
+## Run all integration tests
 ```sh
-cd src/stark_verifier/parser/
-cargo +nightly build
-
-cd ../../..
+make integration_test
 ```
 
-## Run all Integration Tests
+## Run the chain prover
 ```sh
-protostar test --cairo-path=./src tests
+make chain_proof
 ```
-
-Run some tests with the Rust verifier to derive a detailed ground truth:
-
-```sh
-cargo +nightly test -- --show-output
-```
-
-
-## Run the Chain Prover
-```sh
-source ~/cairo_venv/bin/activate
-python3 src/chain_proof/main.py
-```
-
 
 ## List TODOs
 ```sh
  ./docs/todos
 ```
 
-
 ## Roadmap
-
 The roadmap is available [here](roadmap.md).

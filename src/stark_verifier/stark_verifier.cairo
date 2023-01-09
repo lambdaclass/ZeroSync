@@ -7,16 +7,17 @@ from starkware.cairo.common.hash import HashBuiltin
 from starkware.cairo.common.math import assert_lt
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.pow import pow
 
 from stark_verifier.air.air_instance import (
     AirInstance,
     air_instance_new,
     get_constraint_composition_coefficients,
     get_deep_composition_coefficients,
+    ConstraintCompositionCoefficients
 )
 from stark_verifier.air.pub_inputs import PublicInputs
 from stark_verifier.air.stark_proof import (
-    Context,
     TraceLayout,
     ProofOptions,
     StarkProof,
@@ -57,6 +58,8 @@ from stark_verifier.evaluator import evaluate_constraints
 from stark_verifier.fri.fri_verifier import fri_verifier_new, fri_verify
 from stark_verifier.utils import Vec
 
+from stark_verifier.air.pub_inputs import read_public_inputs
+
 // Verifies that the specified computation was executed correctly against the specified inputs.
 //
 // These subroutines are intended to be as close to a line-by-line transcription of the
@@ -77,7 +80,7 @@ func verify{range_check_ptr, pedersen_ptr: HashBuiltin*, bitwise_ptr: BitwiseBui
     let public_coin_seed: felt* = seed_with_pub_inputs{blake2s_ptr=blake2s_ptr}(pub_inputs);
 
     // Create an AIR instance for the computation specified in the proof.
-    let air = air_instance_new(proof, proof.context.options);
+    let air = air_instance_new(proof, pub_inputs, proof.context.options);
 
     // Create a public coin and channel struct
     with blake2s_ptr {
@@ -115,13 +118,14 @@ func perform_verification{
 
     // Process auxiliary trace segments to build a set of random elements for each segment,
     // and to reseed the coin.
-    let (aux_trace_rand_elements: felt*) = alloc();
+    let (aux_trace_rand_elements: felt**) = alloc();
     process_aux_segments(
         trace_commitments=trace_commitments + STATE_SIZE_FELTS,
         trace_commitments_len=air.context.trace_layout.num_aux_segments,
         aux_segment_rands=air.context.trace_layout.aux_segment_rands,
         aux_trace_rand_elements=aux_trace_rand_elements,
     );
+
 
     // Build random coefficients for the composition polynomial
     let constraint_coeffs = get_constraint_composition_coefficients(air=air);
@@ -137,7 +141,6 @@ func perform_verification{
 
     // Draw an out-of-domain point z from the coin.
     let z = draw();
-    %{ print('z', hex(ids.z)) %}
 
     // 3 ----- OOD consistency check --------------------------------------------------------------
 
@@ -148,7 +151,7 @@ func perform_verification{
     // Evaluate constraints over the OOD frames.
     let ood_constraint_evaluation_1 = evaluate_constraints(
         air=air,
-        constraint_coeffs=constraint_coeffs,
+        coeffs=constraint_coeffs,
         ood_main_trace_frame=ood_main_trace_frame,
         ood_aux_trace_frame=ood_aux_trace_frame,
         aux_trace_rand_elements=aux_trace_rand_elements,
@@ -157,7 +160,7 @@ func perform_verification{
 
     // Reseed the public coin with the OOD frames.
     reseed_with_ood_frames(
-        ood_main_trace_frame=ood_main_trace_frame, ood_aux_trace_frame=ood_aux_trace_frame
+       ood_main_trace_frame=ood_main_trace_frame, ood_aux_trace_frame=ood_aux_trace_frame
     );
 
     // Read evaluations of composition polynomial columns sent by the prover, and reduce them into
@@ -165,17 +168,22 @@ func perform_verification{
     // column polynomial at z^m, where m is the total number of column polynomials. Also, reseed
     // the public coin with the OOD constraint evaluations received from the prover.
     let ood_constraint_evaluations = read_ood_constraint_evaluations();
-    let ood_constraint_evaluation_2 = reduce_evaluations(evaluations=ood_constraint_evaluations);
+    let ood_constraint_evaluation_2 = reduce_evaluations(
+        evaluations=ood_constraint_evaluations.elements, 
+        evaluations_len=ood_constraint_evaluations.n_elements, 
+        z=z,
+        index=0
+    );
     let value = hash_elements(
-        n_elements=ood_constraint_evaluations.n_elements,
-        elements=ood_constraint_evaluations.elements,
+       n_elements=ood_constraint_evaluations.n_elements,
+       elements=ood_constraint_evaluations.elements,
     );
     reseed(value=value);
 
     // Finally, make sure the values are the same.
     with_attr error_message(
-            "Ood constraint evaluations differ. ${ood_constraint_evaluation_1} != ${ood_constraint_evaluation_2}") {
-        assert ood_constraint_evaluation_1 = ood_constraint_evaluation_2;
+           "Ood constraint evaluations differ. ${ood_constraint_evaluation_1} != ${ood_constraint_evaluation_2}") {
+       assert ood_constraint_evaluation_1 = ood_constraint_evaluation_2;
     }
 
     // 4 ----- FRI commitments --------------------------------------------------------------------
@@ -197,20 +205,20 @@ func perform_verification{
 
     // Make sure the proof-of-work specified by the grinding factor is satisfied.
     let leading_zeros = get_leading_zeros();
-    // assert_lt(leading_zeros, air.options.grinding_factor);
+    assert_lt(leading_zeros, air.options.grinding_factor);
 
     // Draw pseudorandom query positions for the LDE domain from the public coin.
     let (query_positions: felt*) = alloc();
     draw_integers(
-        n_elements=air.options.num_queries,
-        elements=query_positions,
-        domain_size=air.lde_domain_size,
+       n_elements=air.options.num_queries,
+       elements=query_positions,
+       domain_size=air.context.lde_domain_size,
     );
 
     // Read evaluations of trace and constraint composition polynomials at the queried positions.
     // This also checks that the read values are valid against trace and constraint commitments.
     let (queried_main_trace_states, queried_aux_trace_states) = read_queried_trace_states(
-        query_positions
+       query_positions
     );
     let queried_constraint_evaluations = read_constraint_evaluations(query_positions);
 
@@ -232,11 +240,11 @@ func perform_verification{
     );
     let deep_evaluations = combine_compositions(composer, t_composition, c_composition);
 
-    // 7 ----- Verify low-degree proof -------------------------------------------------------------
+    //// 7 ----- Verify low-degree proof -------------------------------------------------------------
 
-    // Make sure that evaluations of the DEEP composition polynomial we computed in the previous
-    // step are in fact evaluations of a polynomial of degree equal to trace polynomial degree.
-    fri_verify(fri_verifier, deep_evaluations, query_positions);
+    //// Make sure that evaluations of the DEEP composition polynomial we computed in the previous
+    //// step are in fact evaluations of a polynomial of degree equal to trace polynomial degree.
+    //fri_verify(fri_verifier, deep_evaluations, query_positions);
 
     return ();
 }
@@ -251,23 +259,37 @@ func process_aux_segments{
     trace_commitments: felt*,
     trace_commitments_len: felt,
     aux_segment_rands: felt*,
-    aux_trace_rand_elements: felt*,
+    aux_trace_rand_elements: felt**,
 ) {
-    draw_elements(n_elements=[aux_segment_rands], elements=aux_trace_rand_elements);
-    reseed(value=trace_commitments);
     if (trace_commitments_len == 0) {
         return ();
     }
+    let (elements) = alloc();
+    assert [aux_trace_rand_elements] = elements;
+    draw_elements(n_elements=[aux_segment_rands], elements=elements);
+    reseed(value=trace_commitments);
     process_aux_segments(
         trace_commitments=trace_commitments + STATE_SIZE_FELTS,
         trace_commitments_len=trace_commitments_len - 1,
         aux_segment_rands=aux_segment_rands + 1,
-        aux_trace_rand_elements=aux_trace_rand_elements + [aux_segment_rands],
+        aux_trace_rand_elements=aux_trace_rand_elements + 1,
     );
     return ();
 }
 
-func reduce_evaluations(evaluations: Vec) -> felt {
-    // TODO
-    return 0;
+func reduce_evaluations{
+    range_check_ptr
+}(
+    evaluations: felt*,
+    evaluations_len,
+    z,
+    index
+) -> felt {
+    if (evaluations_len == 0){
+        return 0;
+    }
+    alloc_locals;
+    let acc = reduce_evaluations(evaluations + 1, evaluations_len - 1, z, index + 1);
+    let (pow_z) = pow(z, index);
+    return acc + pow_z * [evaluations];
 }
